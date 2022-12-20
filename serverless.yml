@@ -1,0 +1,122 @@
+service: graphql-serverless
+
+frameworkVersion: "3"
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: "*"
+
+functions:
+  graphql:
+    handler: src/handler.handler
+    architecture: arm64
+    events:
+      - http:
+          path: /graphql
+          method: any
+          authorizer:
+            type: COGNITO_USER_POOLS
+            name: cognito
+            arn: arn:aws:cognito-idp:us-east-1:288470581218:userpool/us-east-1_g46dnTEnl
+
+resources:
+  Resources:
+    table:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: graphql-serverless
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+          - AttributeName: entity
+            AttributeType: S
+          - AttributeName: gsipk
+            AttributeType: S
+          - AttributeName: gsisk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: entity
+            KeySchema:
+              - AttributeName: entity
+                KeyType: HASH
+              - AttributeName: pk
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: gsi
+            KeySchema:
+              - AttributeName: gsipk
+                KeyType: HASH
+              - AttributeName: gsisk
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+    userPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: graphql-serverless
+
+    userPoolDomain:
+      Type: AWS::Cognito::UserPoolDomain
+      Properties:
+        UserPoolId: !Ref userPool
+        Domain: capgemini-pnc-api
+
+    resourceServer:
+      Type: AWS::Cognito::UserPoolResourceServer
+      Properties:
+        Identifier: graphql-serverless
+        Name: graphql-serverless
+        Scopes:
+          - ScopeName: APPLICATIONS_READ
+            ScopeDescription: Read applications
+          - ScopeName: APPLICATIONS_WRITE
+            ScopeDescription: Create, delete, update applications
+        UserPoolId: !Ref userPool
+
+    appClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: graphql-api
+        UserPoolId: !Ref userPool
+        SupportedIdentityProviders: [COGNITO]
+
+plugins:
+  - serverless-webpack
+  - serverless-better-credentials
+  - serverless-dynamodb-local
+  - serverless-offline
+
+custom:
+  webpack:
+    includeModules: true
+  dynamodb:
+    stages:
+      - dev
+    start:
+      port: 8000
+      sharedDb: true
+      inMemory: false
