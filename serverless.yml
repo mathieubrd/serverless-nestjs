@@ -29,10 +29,6 @@ functions:
       - http:
           path: /graphql
           method: any
-          authorizer:
-            type: COGNITO_USER_POOLS
-            name: cognito
-            arn: arn:aws:cognito-idp:us-east-1:288470581218:userpool/us-east-1_g46dnTEnl
 
 resources:
   Resources:
@@ -74,35 +70,6 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
-    userPool:
-      Type: AWS::Cognito::UserPool
-      Properties:
-        UserPoolName: graphql-serverless
-
-    userPoolDomain:
-      Type: AWS::Cognito::UserPoolDomain
-      Properties:
-        UserPoolId: !Ref userPool
-        Domain: capgemini-pnc-api
-
-    resourceServer:
-      Type: AWS::Cognito::UserPoolResourceServer
-      Properties:
-        Identifier: graphql-serverless
-        Name: graphql-serverless
-        Scopes:
-          - ScopeName: APPLICATIONS_READ
-            ScopeDescription: Read applications
-          - ScopeName: APPLICATIONS_WRITE
-            ScopeDescription: Create, delete, update applications
-        UserPoolId: !Ref userPool
-
-    appClient:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        ClientName: graphql-api
-        UserPoolId: !Ref userPool
-        SupportedIdentityProviders: [COGNITO]
 
 plugins:
   - serverless-webpack
